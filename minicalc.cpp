@@ -35,10 +35,14 @@ private:
     }
 };
 
-
 enum Estado { I, P, PR, PRI, PRIN, PRINT, ID, NUM, BL, W, S, M };
 
-const Estado transiciones[][10] = {
+enum Columna {
+    COL_P, COL_R, COL_I, COL_N, COL_T, COL_LETRA,
+    COL_DIGITO, COL_BLANCO, COL_SIMBOLO, COL_OTRO, TOTAL_COLUMNAS
+};
+
+const Estado transiciones[][TOTAL_COLUMNAS] = {
     /* I     */ {P, ID, ID, ID, ID, ID, NUM, BL, S, M},
     /* P     */ {W, PR, W, W, W, W, W, M, M, M},
     /* PR    */ {W, W, PRI, W, W, W, W, M, M, M},
@@ -60,17 +64,16 @@ const char* const tiposSimbolo[] = {
     "PUNCT_LPAREN", "PUNCT_RPAREN", "PUNCT_SEMI"
 };
 
-std::size_t claseCaracter(char caracter) {
+Columna claseCaracter(char caracter) {
     const std::size_t letra = letrasPrint.find(caracter);
-    if (letra != std::string::npos) return letra;
-    if ('a' <= caracter && caracter <= 'z') return 5;
-    if ('0' <= caracter && caracter <= '9') return 6;
+    if (letra != std::string::npos) return static_cast<Columna>(COL_P + letra);
+    if ('a' <= caracter && caracter <= 'z') return COL_LETRA;
+    if ('0' <= caracter && caracter <= '9') return COL_DIGITO;
     if (caracter == ' ' || caracter == '\t' ||
-        caracter == '\r' || caracter == '\n') return 7;
-    if (simbolos.find(caracter) != std::string::npos) return 8;
-    return 9;
+        caracter == '\r' || caracter == '\n') return COL_BLANCO;
+    if (simbolos.find(caracter) != std::string::npos) return COL_SIMBOLO;
+    return COL_OTRO;
 }
-
 
 std::string describirCaracter(char caracter) {
     const unsigned char codigo = static_cast<unsigned char>(caracter);
@@ -147,18 +150,21 @@ private:
 
 class Parser {
 public:
-    explicit Parser(const std::vector<Token>& tokens) : tokens(tokens), indice(0) {}
+    explicit Parser(const std::vector<Token>& tokens)
+        : tokens(tokens), indice(0), sentencias(0) {}
 
-    void programa() {
+    std::size_t programa() {
         lista_sentencias();
         if (actual().tipo != "EOF") {
             error("una asignacion o la instruccion 'print'");
         }
+        return sentencias;
     }
 
 private:
     const std::vector<Token>& tokens;
     std::size_t indice;
+    std::size_t sentencias;
 
     const Token& actual() const { return tokens[indice]; }
 
@@ -188,6 +194,7 @@ private:
         if (asignacion) exigir("OP_ASSIGN", "'='");
         expresion();
         exigir("PUNCT_SEMI", "';'");
+        ++sentencias;
     }
 
     void expresion() {
@@ -231,14 +238,16 @@ private:
     }
 };
 
-// Quita las comillas que agrega Windows al usar "Copiar como ruta de acceso".
-std::string quitarComillas(const std::string& ruta) {
-    if (ruta.size() >= 2 && ruta[0] == '"' && ruta[ruta.size() - 1] == '"') {
-        return ruta.substr(1, ruta.size() - 2);
+std::string limpiarRuta(const std::string& ruta) {
+    const std::string blancos = " \t\r\n";
+    const std::size_t inicio = ruta.find_first_not_of(blancos);
+    if (inicio == std::string::npos) return "";
+    std::string limpia = ruta.substr(inicio, ruta.find_last_not_of(blancos) - inicio + 1);
+    if (limpia.size() >= 2 && limpia[0] == '"' && limpia[limpia.size() - 1] == '"') {
+        limpia = limpia.substr(1, limpia.size() - 2);
     }
-    return ruta;
+    return limpia;
 }
-
 
 int analizarArchivo(const std::string& ruta) {
     std::ifstream archivo(ruta.c_str(), std::ios::binary);
@@ -253,7 +262,6 @@ int analizarArchivo(const std::string& ruta) {
         std::cerr << "No se pudo leer el archivo: " << ruta << '\n';
         return 2;
     }
-
 
     const std::string bom = "\xEF\xBB\xBF";
     if (fuente.compare(0, bom.size(), bom) == 0) {
@@ -275,9 +283,16 @@ int analizarArchivo(const std::string& ruta) {
         tokens.push_back(token);
         std::cout << "Total de tokens: " << tokens.size() - 1 << '\n';
 
+        if (tokens.size() == 1) {
+            std::cout << "El archivo no contiene instrucciones para analizar.\n";
+            return 1;
+        }
+
         std::cout << "=== INICIO DE ANALISIS SINTACTICO ===\n";
-        Parser(tokens).programa();
-        std::cout << "El analisis sintactico finalizo exitosamente sin errores.\n";
+        const std::size_t sentencias = Parser(tokens).programa();
+        std::cout << "El analisis sintactico finalizo exitosamente sin errores ("
+                  << sentencias << (sentencias == 1 ? " sentencia" : " sentencias")
+                  << ").\n";
     } catch (const ErrorMiniCalc& error) {
         std::cout.flush();
         std::cerr << error.what() << '\n';
@@ -288,19 +303,20 @@ int analizarArchivo(const std::string& ruta) {
 
 int main(int argc, char* argv[]) {
     if (argc == 2) {
-        return analizarArchivo(quitarComillas(argv[1]));
+        return analizarArchivo(limpiarRuta(argv[1]));
     }
     if (argc > 2) {
         std::cerr << "Uso: minicalc <archivo.calc>\n";
         return 2;
     }
 
-   
     std::string ruta;
     while (true) {
         std::cout << "\nEscribi la ruta del archivo .calc (Enter para salir): ";
-        if (!std::getline(std::cin, ruta) || ruta.empty()) break;
-        analizarArchivo(quitarComillas(ruta));
+        if (!std::getline(std::cin, ruta)) break;
+        ruta = limpiarRuta(ruta);
+        if (ruta.empty()) break;
+        analizarArchivo(ruta);
     }
     return 0;
 }

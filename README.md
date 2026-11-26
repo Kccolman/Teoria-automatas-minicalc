@@ -14,7 +14,8 @@ C++98 y usa la biblioteca estándar.
 4. El programa vuelve a pedir otra ruta al terminar cada análisis, así que
    podés probar todos los ejemplos en una sola ejecución. Para salir,
    presioná **Enter** sin escribir nada. También acepta la ruta completa
-   con comillas, tal como la copia Windows con *Copiar como ruta de acceso*.
+   con comillas o espacios de más, tal como la copia Windows con *Copiar
+   como ruta de acceso*.
 
 ## Pruebas de ejecución
 
@@ -28,7 +29,9 @@ C++98 y usa la biblioteca estándar.
 | `ejemplos/error_identificador.calc` | Rechaza `print1` como palabra no reconocida en la línea 1, columna 1. |
 
 También se incluye `ejemplos/ejemplo.calc`, con dos asignaciones y una
-instrucción `print` válidas.
+instrucción `print` válidas. Al finalizar, el programa informa cuántas
+sentencias analizó. Un archivo vacío o con solo espacios se informa como
+un archivo sin instrucciones para analizar.
 
 ## Cómo funciona
 
