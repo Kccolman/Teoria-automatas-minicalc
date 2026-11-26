@@ -35,18 +35,17 @@ private:
     }
 };
 
-// Las columnas de la matriz corresponden a p, r, i, n, t, otras
-// minusculas, digitos, blancos, simbolos y caracteres no permitidos.
+
 enum Estado { I, P, PR, PRI, PRIN, PRINT, ID, NUM, BL, W, S, M };
 
 const Estado transiciones[][10] = {
     /* I     */ {P, ID, ID, ID, ID, ID, NUM, BL, S, M},
-    /* P     */ {W, PR, W, W, W, W, M, M, M, M},
-    /* PR    */ {W, W, PRI, W, W, W, M, M, M, M},
-    /* PRI   */ {W, W, W, PRIN, W, W, M, M, M, M},
-    /* PRIN  */ {W, W, W, W, PRINT, W, M, M, M, M},
-    /* PRINT */ {W, W, W, W, W, W, M, M, M, M},
-    /* ID    */ {W, W, W, W, W, W, M, M, M, M},
+    /* P     */ {W, PR, W, W, W, W, W, M, M, M},
+    /* PR    */ {W, W, PRI, W, W, W, W, M, M, M},
+    /* PRI   */ {W, W, W, PRIN, W, W, W, M, M, M},
+    /* PRIN  */ {W, W, W, W, PRINT, W, W, M, M, M},
+    /* PRINT */ {W, W, W, W, W, W, W, M, M, M},
+    /* ID    */ {W, W, W, W, W, W, W, M, M, M},
     /* NUM   */ {M, M, M, M, M, M, NUM, M, M, M},
     /* BL    */ {M, M, M, M, M, M, M, BL, M, M},
     /* W     */ {W, W, W, W, W, W, W, M, M, M},
@@ -70,6 +69,23 @@ std::size_t claseCaracter(char caracter) {
         caracter == '\r' || caracter == '\n') return 7;
     if (simbolos.find(caracter) != std::string::npos) return 8;
     return 9;
+}
+
+
+std::string describirCaracter(char caracter) {
+    const unsigned char codigo = static_cast<unsigned char>(caracter);
+    std::ostringstream salida;
+    if (codigo >= 32 && codigo < 127) {
+        salida << '\'' << caracter << '\'';
+    } else {
+        salida << "con codigo " << static_cast<int>(codigo);
+    }
+    if ('A' <= caracter && caracter <= 'Z') {
+        salida << " (solo se permiten letras minusculas)";
+    } else if (codigo >= 128) {
+        salida << " (no se permiten tildes, enie ni caracteres especiales)";
+    }
+    return salida.str();
 }
 
 class Lexer {
@@ -101,8 +117,8 @@ public:
                                 lexema, posicionInicial);
                 case I:
                     throw ErrorMiniCalc(posicionInicial,
-                        "Error lexico. Caracter no permitido '" +
-                        std::string(1, fuente[indice]) + "'.");
+                        "Error lexico. Caracter no permitido " +
+                        describirCaracter(fuente[indice]) + ".");
                 default:
                     throw ErrorMiniCalc(posicionInicial,
                         "Error lexico. Palabra no reconocida '" + lexema + "'.");
@@ -215,32 +231,33 @@ private:
     }
 };
 
-int main(int argc, char* argv[]) {
-    std::string ruta;
-    if (argc == 2) {
-        ruta = argv[1];
-    } else if (argc == 1) {
-        std::cout << "Escribi la ruta del archivo .calc: ";
-        if (!std::getline(std::cin, ruta) || ruta.empty()) {
-            std::cerr << "Falta la ruta del archivo .calc.\n";
-            return 2;
-        }
-    } else {
-        std::cerr << "Uso: minicalc <archivo.calc>\n";
-        return 2;
+// Quita las comillas que agrega Windows al usar "Copiar como ruta de acceso".
+std::string quitarComillas(const std::string& ruta) {
+    if (ruta.size() >= 2 && ruta[0] == '"' && ruta[ruta.size() - 1] == '"') {
+        return ruta.substr(1, ruta.size() - 2);
     }
+    return ruta;
+}
 
+
+int analizarArchivo(const std::string& ruta) {
     std::ifstream archivo(ruta.c_str(), std::ios::binary);
     if (!archivo) {
         std::cerr << "No se pudo abrir el archivo: " << ruta << '\n';
         return 2;
     }
 
-    const std::string fuente((std::istreambuf_iterator<char>(archivo)),
-                             std::istreambuf_iterator<char>());
+    std::string fuente((std::istreambuf_iterator<char>(archivo)),
+                       std::istreambuf_iterator<char>());
     if (archivo.bad()) {
         std::cerr << "No se pudo leer el archivo: " << ruta << '\n';
         return 2;
+    }
+
+
+    const std::string bom = "\xEF\xBB\xBF";
+    if (fuente.compare(0, bom.size(), bom) == 0) {
+        fuente.erase(0, bom.size());
     }
 
     try {
@@ -256,13 +273,34 @@ int main(int argc, char* argv[]) {
             token = lexer.siguiente();
         }
         tokens.push_back(token);
+        std::cout << "Total de tokens: " << tokens.size() - 1 << '\n';
 
         std::cout << "=== INICIO DE ANALISIS SINTACTICO ===\n";
         Parser(tokens).programa();
         std::cout << "El analisis sintactico finalizo exitosamente sin errores.\n";
     } catch (const ErrorMiniCalc& error) {
+        std::cout.flush();
         std::cerr << error.what() << '\n';
         return 1;
+    }
+    return 0;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc == 2) {
+        return analizarArchivo(quitarComillas(argv[1]));
+    }
+    if (argc > 2) {
+        std::cerr << "Uso: minicalc <archivo.calc>\n";
+        return 2;
+    }
+
+   
+    std::string ruta;
+    while (true) {
+        std::cout << "\nEscribi la ruta del archivo .calc (Enter para salir): ";
+        if (!std::getline(std::cin, ruta) || ruta.empty()) break;
+        analizarArchivo(quitarComillas(ruta));
     }
     return 0;
 }

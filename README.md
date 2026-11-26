@@ -11,9 +11,10 @@ C++98 y usa la biblioteca estándar.
 2. Abrí `minicalc.cpp` en Dev-C++ y elegí **Execute → Compile & Run**.
 3. Cuando la consola pida la ruta del archivo, escribí
    `ejemplos/suma_valida.calc` y presioná **Enter**.
-4. Para hacer otra prueba, volvé a ejecutar y escribí la ruta del archivo
-   correspondiente. Si el programa no encuentra el archivo, pegá su ruta
-   completa sin comillas.
+4. El programa vuelve a pedir otra ruta al terminar cada análisis, así que
+   podés probar todos los ejemplos en una sola ejecución. Para salir,
+   presioná **Enter** sin escribir nada. También acepta la ruta completa
+   con comillas, tal como la copia Windows con *Copiar como ruta de acceso*.
 
 ## Pruebas de ejecución
 
@@ -24,6 +25,7 @@ C++98 y usa la biblioteca estándar.
 | `ejemplos/error_lexico.calc` | Detecta el carácter `@` en la línea 2, columna 9. |
 | `ejemplos/error_punto_y_coma.calc` | Espera un punto y coma al encontrar `print` en la línea 2, columna 1. |
 | `ejemplos/error_parentesis.calc` | Espera un paréntesis de cierre en la línea 1, columna 13. |
+| `ejemplos/error_identificador.calc` | Rechaza `print1` como palabra no reconocida en la línea 1, columna 1. |
 
 También se incluye `ejemplos/ejemplo.calc`, con dos asignaciones y una
 instrucción `print` válidas.
