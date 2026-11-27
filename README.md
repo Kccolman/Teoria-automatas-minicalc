@@ -45,3 +45,11 @@ El analizador léxico usa la tabla de transiciones de un autómata finito
 determinista para reconocer los tokens. Luego el analizador sintáctico usa
 descenso recursivo para comprobar que los tokens siguen la gramática de Mini-Calc.
 La salida confirma si la estructura es válida o indica el primer error detectado.
+Cuando hay un error, se muestra además la línea del archivo con un `^` debajo de
+la columna donde se detectó:
+
+```
+Error [Linea 1, Columna 9]: Error sintactico. Se esperaba un operador (+, -, * o /) y se encontro '4'.
+  print 4 4;
+          ^
+```

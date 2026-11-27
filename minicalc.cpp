@@ -24,9 +24,13 @@ struct Token {
 class ErrorMiniCalc : public std::runtime_error {
 public:
     ErrorMiniCalc(Posicion posicion, const std::string& mensaje)
-        : std::runtime_error(formatear(posicion, mensaje)) {}
+        : std::runtime_error(formatear(posicion, mensaje)), lugar(posicion) {}
+
+    Posicion posicion() const { return lugar; }
 
 private:
+    Posicion lugar;
+
     static std::string formatear(Posicion posicion, const std::string& mensaje) {
         std::ostringstream salida;
         salida << "Error [Linea " << posicion.linea
@@ -238,6 +242,30 @@ private:
     }
 };
 
+std::string extraerLinea(const std::string& fuente, std::size_t linea) {
+    std::size_t inicio = 0;
+    for (std::size_t actual = 1; actual < linea; ++actual) {
+        std::size_t fin = fuente.find_first_of("\r\n", inicio);
+        if (fin == std::string::npos) return "";
+        if (fuente[fin] == '\r' && fin + 1 < fuente.size() &&
+            fuente[fin + 1] == '\n') ++fin;
+        inicio = fin + 1;
+    }
+    const std::size_t fin = fuente.find_first_of("\r\n", inicio);
+    return fuente.substr(inicio, fin == std::string::npos
+                                     ? std::string::npos : fin - inicio);
+}
+
+void mostrarContexto(std::ostream& salida, const std::string& fuente,
+                     Posicion posicion) {
+    const std::string linea = extraerLinea(fuente, posicion.linea);
+    salida << "  " << linea << "\n  ";
+    for (std::size_t i = 1; i < posicion.columna; ++i) {
+        salida << (i <= linea.size() && linea[i - 1] == '\t' ? '\t' : ' ');
+    }
+    salida << "^\n";
+}
+
 std::string limpiarRuta(const std::string& ruta) {
     const std::string blancos = " \t\r\n";
     const std::size_t inicio = ruta.find_first_not_of(blancos);
@@ -296,6 +324,7 @@ int analizarArchivo(const std::string& ruta) {
     } catch (const ErrorMiniCalc& error) {
         std::cout.flush();
         std::cerr << error.what() << '\n';
+        mostrarContexto(std::cerr, fuente, error.posicion());
         return 1;
     }
     return 0;
