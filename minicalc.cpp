@@ -1,7 +1,10 @@
+#include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -152,10 +155,35 @@ private:
     }
 };
 
+// ---------------------------------------------------------------------------
+// Fase de ejecucion agregada por Abrahan Baez.
+// El mismo analizador por descenso recursivo funciona en dos modos:
+//   1) Solo sintaxis: memoria == 0. Verifica la gramatica, como antes.
+//   2) Ejecucion: memoria != 0. Cada regla de la gramatica devuelve el valor
+//      de su subexpresion (traduccion dirigida por la sintaxis), las
+//      asignaciones guardan valores en la tabla de simbolos y print muestra
+//      el resultado. Aqui se detectan los errores semanticos: variable sin
+//      valor asignado, division por cero y resultado fuera de rango.
+// ---------------------------------------------------------------------------
+typedef std::map<std::string, double> TablaSimbolos;
+
+std::string formatearNumero(double valor) {
+    if (valor == 0) valor = 0;  // evita mostrar "-0"
+    std::ostringstream salida;
+    salida << std::setprecision(12) << valor;
+    return salida.str();
+}
+
+bool esFinito(double valor) {
+    return valor - valor == 0;  // falso para infinito y NaN (C++98)
+}
+
 class Parser {
 public:
-    explicit Parser(const std::vector<Token>& tokens)
-        : tokens(tokens), indice(0), sentencias(0) {}
+    explicit Parser(const std::vector<Token>& tokens,
+                    TablaSimbolos* memoria = 0, std::ostream* salida = 0)
+        : tokens(tokens), indice(0), sentencias(0),
+          memoria(memoria), salida(salida) {}
 
     std::size_t programa() {
         lista_sentencias();
@@ -169,8 +197,23 @@ private:
     const std::vector<Token>& tokens;
     std::size_t indice;
     std::size_t sentencias;
+    TablaSimbolos* memoria;
+    std::ostream* salida;
 
     const Token& actual() const { return tokens[indice]; }
+
+    bool ejecutando() const { return memoria != 0; }
+
+    void errorSemantico(Posicion posicion, const std::string& mensaje) const {
+        throw ErrorMiniCalc(posicion, "Error semantico. " + mensaje);
+    }
+
+    double comprobarRango(double valor, Posicion posicion) const {
+        if (ejecutando() && !esFinito(valor)) {
+            errorSemantico(posicion, "El resultado es demasiado grande para representarlo.");
+        }
+        return valor;
+    }
 
     void error(const std::string& esperado) const {
         const Token& token = actual();
@@ -193,52 +236,91 @@ private:
     }
 
     void sentencia() {
-        const bool asignacion = actual().tipo == "ID";
+        const Token& inicio = actual();
         ++indice;
-        if (asignacion) exigir("OP_ASSIGN", "'='");
-        expresion();
-        exigir("PUNCT_SEMI", "';'");
+        if (inicio.tipo == "ID") {
+            exigir("OP_ASSIGN", "'='");
+            const double valor = expresion();
+            exigir("PUNCT_SEMI", "';'");
+            if (ejecutando()) (*memoria)[inicio.lexema] = valor;
+        } else {
+            const double valor = expresion();
+            exigir("PUNCT_SEMI", "';'");
+            if (ejecutando() && salida) {
+                *salida << "Linea " << inicio.posicion.linea << ": print -> "
+                        << formatearNumero(valor) << '\n';
+            }
+        }
         ++sentencias;
     }
 
-    void expresion() {
-        termino();
-        cola_expresion();
+    double expresion() {
+        const double valor = cola_expresion(termino());
         const std::string& tipo = actual().tipo;
         if (tipo == "NUM" || tipo == "ID" || tipo == "PUNCT_LPAREN") {
             error("un operador (+, -, * o /)");
         }
+        return valor;
     }
 
-    void cola_expresion() {
+    double cola_expresion(double izquierdo) {
         while (actual().tipo == "OP_ADD" || actual().tipo == "OP_SUB") {
+            const Token& operador = actual();
             ++indice;
-            termino();
+            const double derecho = termino();
+            izquierdo = operador.tipo == "OP_ADD" ? izquierdo + derecho
+                                                  : izquierdo - derecho;
+            comprobarRango(izquierdo, operador.posicion);
         }
+        return izquierdo;
     }
 
-    void termino() {
-        factor();
-        cola_termino();
+    double termino() {
+        return cola_termino(factor());
     }
 
-    void cola_termino() {
+    double cola_termino(double izquierdo) {
         while (actual().tipo == "OP_MUL" || actual().tipo == "OP_DIV") {
+            const Token& operador = actual();
             ++indice;
-            factor();
+            const double derecho = factor();
+            if (operador.tipo == "OP_MUL") {
+                izquierdo *= derecho;
+            } else if (ejecutando() && derecho == 0) {
+                errorSemantico(operador.posicion, "Division por cero.");
+            } else if (ejecutando()) {
+                izquierdo /= derecho;
+            }
+            comprobarRango(izquierdo, operador.posicion);
         }
+        return izquierdo;
     }
 
-    void factor() {
-        if (actual().tipo == "PUNCT_LPAREN") {
+    double factor() {
+        const Token& token = actual();
+        if (token.tipo == "PUNCT_LPAREN") {
             ++indice;
-            expresion();
+            const double valor = expresion();
             exigir("PUNCT_RPAREN", "')'");
-        } else if (actual().tipo == "NUM" || actual().tipo == "ID") {
-            ++indice;
-        } else {
-            error("una variable, un numero o '('");
+            return valor;
         }
+        if (token.tipo == "NUM") {
+            ++indice;
+            return comprobarRango(std::strtod(token.lexema.c_str(), 0),
+                                  token.posicion);
+        }
+        if (token.tipo == "ID") {
+            ++indice;
+            if (!ejecutando()) return 0;
+            const TablaSimbolos::const_iterator variable = memoria->find(token.lexema);
+            if (variable == memoria->end()) {
+                errorSemantico(token.posicion, "La variable '" + token.lexema +
+                    "' se usa antes de asignarle un valor.");
+            }
+            return variable->second;
+        }
+        error("una variable, un numero o '('");
+        return 0;
     }
 };
 
@@ -321,6 +403,19 @@ int analizarArchivo(const std::string& ruta) {
         std::cout << "El analisis sintactico finalizo exitosamente sin errores ("
                   << sentencias << (sentencias == 1 ? " sentencia" : " sentencias")
                   << ").\n";
+
+        std::cout << "=== INICIO DE EJECUCION ===\n";
+        TablaSimbolos memoria;
+        Parser(tokens, &memoria, &std::cout).programa();
+        std::cout << "Tabla de simbolos:";
+        if (memoria.empty()) std::cout << " (sin variables)";
+        std::cout << '\n';
+        for (TablaSimbolos::const_iterator variable = memoria.begin();
+             variable != memoria.end(); ++variable) {
+            std::cout << "  " << variable->first << " = "
+                      << formatearNumero(variable->second) << '\n';
+        }
+        std::cout << "La ejecucion finalizo sin errores.\n";
     } catch (const ErrorMiniCalc& error) {
         std::cout.flush();
         std::cerr << error.what() << '\n';

@@ -33,6 +33,13 @@ C++98 y usa la biblioteca estándar.
 | `ejemplos/error_parentesis_sobrante.calc` | En `print 2 + 3);`, espera un punto y coma y encuentra `)` en la línea 1, columna 12. |
 | `ejemplos/error_expresion_incompleta.calc` | En `print 2 +;`, espera una variable, un número o `(` y encuentra `;` en la línea 1, columna 10. |
 | `ejemplos/error_multiple.calc` | Tiene un error sintáctico en la línea 1 y uno léxico en la línea 2. Como el análisis léxico se hace completo antes del sintáctico, informa el carácter `@` en la línea 2, columna 9. |
+| `ejemplos/parentesis_anidados.calc` | Acepta los paréntesis anidados y en la ejecución muestra `print -> 18`. |
+| `ejemplos/variable_p_y_cero.calc` | Acepta la variable `p` (aunque sea la primera letra de `print`) y muestra `print -> 0`. |
+| `ejemplos/varias_instrucciones.calc` | Acepta tres sentencias y muestra `print -> 6` (120 / 15 - 2). |
+| `ejemplos/division_decimal.calc` | La división no se trunca: `print t / 2;` con `t = 7` muestra `print -> 3.5`. |
+| `ejemplos/reasignacion.calc` | `x = x * x + 1;` usa el valor anterior de `x`; muestra `print -> 10`. |
+| `ejemplos/error_variable_sin_valor.calc` | Error semántico: la variable `y` se usa antes de asignarle un valor, en la línea 2, columna 11. |
+| `ejemplos/error_division_cero.calc` | Error semántico: división por cero en la línea 3, columna 9 (el divisor `b` vale 0). |
 
 También se incluye `ejemplos/ejemplo.calc`, con dos asignaciones y una
 instrucción `print` válidas. Al finalizar, el programa informa cuántas
@@ -45,6 +52,7 @@ El analizador léxico usa la tabla de transiciones de un autómata finito
 determinista para reconocer los tokens. Luego el analizador sintáctico usa
 descenso recursivo para comprobar que los tokens siguen la gramática de Mini-Calc.
 La salida confirma si la estructura es válida o indica el primer error detectado.
+Si la sintaxis es válida, se ejecuta el programa (ver la sección siguiente).
 Cuando hay un error, se muestra además la línea del archivo con un `^` debajo de
 la columna donde se detectó:
 
@@ -52,4 +60,36 @@ la columna donde se detectó:
 Error [Linea 1, Columna 9]: Error sintactico. Se esperaba un operador (+, -, * o /) y se encontro '4'.
   print 4 4;
           ^
+```
+
+## Fase de ejecución (aporte de Abrahán Baez)
+
+Además de verificar la sintaxis, Mini-Calc ahora **ejecuta** el programa
+cuando el análisis sintáctico termina sin errores. Se usa una *traducción
+dirigida por la sintaxis*: el mismo analizador de descenso recursivo recorre
+los tokens una segunda vez y cada regla de la gramática (`expresion`,
+`termino`, `factor`) devuelve el valor de su subexpresión, respetando la
+precedencia de `*` y `/` sobre `+` y `-` y los paréntesis.
+
+- Las asignaciones guardan el valor en una **tabla de símbolos**.
+- Cada `print` muestra su resultado junto con la línea donde está.
+- La división es real: `7 / 2` da `3.5`.
+- Al final se muestra la tabla de símbolos con el valor de cada variable.
+
+En esta fase se detectan los **errores semánticos**, con el mismo formato de
+línea, columna y `^` que los errores léxicos y sintácticos:
+
+- Usar una variable antes de asignarle un valor.
+- Dividir por cero (se señala el operador `/`).
+- Un resultado demasiado grande para representarlo.
+
+Ejemplo con `ejemplos/ejemplo.calc`:
+
+```
+=== INICIO DE EJECUCION ===
+Linea 3: print -> 8
+Tabla de simbolos:
+  x = 20
+  y = 8
+La ejecucion finalizo sin errores.
 ```
