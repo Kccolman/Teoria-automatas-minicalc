@@ -27,6 +27,7 @@ C++98 y usa la biblioteca estándar.
 | `ejemplos/error_punto_y_coma.calc` | Espera un punto y coma al encontrar `print` en la línea 2, columna 1. |
 | `ejemplos/error_parentesis.calc` | Espera un paréntesis de cierre en la línea 1, columna 13. |
 | `ejemplos/error_identificador.calc` | Rechaza `print1` como palabra no reconocida en la línea 1, columna 1. |
+| `ejemplos/error_palabra_invalida.calc` | Rechaza `printx` como palabra no reconocida en la línea 1, columna 1. |
 
 También se incluye `ejemplos/ejemplo.calc`, con dos asignaciones y una
 instrucción `print` válidas. Al finalizar, el programa informa cuántas
