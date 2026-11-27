@@ -28,6 +28,11 @@ C++98 y usa la biblioteca estándar.
 | `ejemplos/error_parentesis.calc` | Espera un paréntesis de cierre en la línea 1, columna 13. |
 | `ejemplos/error_identificador.calc` | Rechaza `print1` como palabra no reconocida en la línea 1, columna 1. |
 | `ejemplos/error_palabra_invalida.calc` | Rechaza `printx` como palabra no reconocida en la línea 1, columna 1. |
+| `ejemplos/vacio.calc` | Archivo vacío: informa que no contiene instrucciones para analizar. |
+| `ejemplos/error_mayuscula.calc` | Rechaza la `P` de `Print x;` en la línea 1, columna 1, porque solo se permiten minúsculas. |
+| `ejemplos/error_parentesis_sobrante.calc` | En `print 2 + 3);`, espera un punto y coma y encuentra `)` en la línea 1, columna 12. |
+| `ejemplos/error_expresion_incompleta.calc` | En `print 2 +;`, espera una variable, un número o `(` y encuentra `;` en la línea 1, columna 10. |
+| `ejemplos/error_multiple.calc` | Tiene un error sintáctico en la línea 1 y uno léxico en la línea 2. Como el análisis léxico se hace completo antes del sintáctico, informa el carácter `@` en la línea 2, columna 9. |
 
 También se incluye `ejemplos/ejemplo.calc`, con dos asignaciones y una
 instrucción `print` válidas. Al finalizar, el programa informa cuántas
